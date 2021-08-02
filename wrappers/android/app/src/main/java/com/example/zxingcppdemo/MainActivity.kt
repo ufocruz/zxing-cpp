@@ -110,7 +110,7 @@ class MainActivity : AppCompatActivity() {
 					return@Analyzer
 				}
 
-				val cropSize = image.height / 3 * 2
+				val cropSize = image.height / 20 * 2
 				cropRect = if (chip_crop.isChecked)
 					Rect(
 						(image.width - cropSize) / 2, (image.height - cropSize) / 2,
@@ -128,21 +128,36 @@ class MainActivity : AppCompatActivity() {
 					yBuffer.get(data, 0, data.size)
 					image.close()
 					val hints = mutableMapOf<DecodeHintType, Any>()
-					if (chip_qrcode.isChecked)
-						hints[DecodeHintType.POSSIBLE_FORMATS] = arrayListOf(BarcodeFormat.QR_CODE)
+					if (chip_datamatrix.isChecked)
+						hints[DecodeHintType.POSSIBLE_FORMATS] = arrayListOf(BarcodeFormat.DATA_MATRIX)
 					if (chip_tryHarder.isChecked)
 						hints[DecodeHintType.TRY_HARDER] = true
 
-					resultText = try {
-						val bitmap = BinaryBitmap(
+					var lumi = PlanarYUVLuminanceSource(
+						data, imageWidth, imageHeight,
+						cropRect.left, cropRect.top, cropRect.width(), cropRect.height(),
+						false
+					)
+
+					val bitmap: BinaryBitmap;
+
+					if (chip_invert.isChecked) {
+						var invert = lumi.invert()
+						bitmap = BinaryBitmap(
 							HybridBinarizer(
-								PlanarYUVLuminanceSource(
-									data, imageWidth, imageHeight,
-									cropRect.left, cropRect.top, cropRect.width(), cropRect.height(),
-									false
-								)
+								invert
 							)
 						)
+
+					} else {
+						bitmap = BinaryBitmap(
+							HybridBinarizer(
+								lumi
+							)
+						)
+					}
+					resultText = try {
+
 						val result = readerJava.decode(bitmap, hints)
 						result?.let { "${it.barcodeFormat}: ${it.text}" } ?: ""
 					} catch (e: Throwable) {
@@ -150,7 +165,7 @@ class MainActivity : AppCompatActivity() {
 					}
 				} else {
 					readerCpp.options = BarcodeReader.Options(
-						formats = if (chip_qrcode.isChecked) setOf(Format.QR_CODE) else setOf(),
+						formats = if (chip_datamatrix.isChecked) setOf(Format.DATA_MATRIX) else setOf(),
 						tryHarder = chip_tryHarder.isChecked,
 						tryRotate = chip_tryRotate.isChecked
 					)
@@ -158,7 +173,7 @@ class MainActivity : AppCompatActivity() {
 					image.setCropRect(cropRect)
 
 					resultText = try {
-						val result = readerCpp.read(image)
+						val result = readerCpp.read(image, chip_invert.isChecked)
 						runtime2 += result?.time?.toInt() ?: 0
 						(result?.let { "${it.format}: ${it.text}" } ?: "")
 					} catch (e: Throwable) {

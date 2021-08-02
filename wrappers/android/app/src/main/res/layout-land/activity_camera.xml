@@ -80,9 +80,14 @@
             android:text="Java" />
 
         <com.google.android.material.chip.Chip
-            android:id="@+id/chip_qrcode"
+            android:id="@+id/chip_invert"
             style="@style/Chip"
-            android:text="QRCode" />
+            android:text="Invert" />
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chip_datamatrix"
+            style="@style/Chip"
+            android:text="Data Matrix" />
 
         <com.google.android.material.chip.Chip
             android:id="@+id/chip_tryHarder"

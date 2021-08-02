@@ -16,11 +16,9 @@
 
 package com.example.zxingcpp
 
-import android.graphics.Bitmap
-import android.graphics.ImageFormat
-import android.graphics.Rect
+import android.graphics.*
 import androidx.camera.core.ImageProxy
-import java.lang.RuntimeException
+
 
 class BarcodeReader {
 
@@ -46,7 +44,7 @@ class BarcodeReader {
     private lateinit var bitmapBuffer: Bitmap
     var options : Options = Options()
 
-    fun read(image: ImageProxy): Result? {
+    fun read(image: ImageProxy, invert:Boolean = false): Result? {
         if (!::bitmapBuffer.isInitialized || bitmapBuffer.width != image.width || bitmapBuffer.height != image.height) {
             if (image.format != ImageFormat.YUV_420_888) {
                 error("invalid image format")
@@ -54,7 +52,37 @@ class BarcodeReader {
             bitmapBuffer = Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ALPHA_8)
         }
         image.use { bitmapBuffer.copyPixelsFromBuffer(image.planes[0].buffer) }
+
+        if(invert)
+            bitmapBuffer = invertBitmap(bitmapBuffer)
         return read(bitmapBuffer, image.cropRect, image.imageInfo.rotationDegrees)
+    }
+
+    private fun invertBitmap(src: Bitmap): Bitmap {
+        val height = src.height
+        val width = src.width
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint()
+        val matrixGrayscale = ColorMatrix()
+        matrixGrayscale.setSaturation(0f)
+        val matrixInvert = ColorMatrix()
+        matrixInvert.set(
+            floatArrayOf(
+                -1.0f, 0.0f, 0.0f, 0.0f, 255.0f,
+                0.0f, -1.0f, 0.0f, 0.0f, 255.0f,
+                0.0f, 0.0f, -1.0f, 0.0f, 255.0f,
+                0.0f, 0.0f, 0.0f, 1.0f, 0.0f
+            )
+        )
+        matrixInvert.preConcat(matrixGrayscale)
+        val filter = ColorMatrixColorFilter(matrixInvert)
+        paint.colorFilter = filter
+
+        canvas.drawBitmap(src, 0f, 0f, paint)
+
+        bitmap.reconfigure(width, height, Bitmap.Config.ALPHA_8)
+        return bitmap
     }
 
     fun read(bitmap: Bitmap, cropRect: Rect = Rect(), rotation: Int = 0): Result? {
